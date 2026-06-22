@@ -60,20 +60,21 @@ Renders the Mermaid source string from this library’s IR format — useful for
 ## Views
 The three `mermaid.*` builders all take a **`pages`** list — a page-object list, typically produced by a `query[[…]]` expression such as `query[[from index.pages("adr")]]` . Each returns a diagram IR you pass to `mermaid.diagram`. Each builder spec also accepts optional `width`, `height`, `maxWidth` (CSS lengths) that are threaded onto the returned IR and applied at render time; an `opts` table passed to `mermaid.diagram` overrides them.
 
-### mermaid.relationGraph{ pages, relations?, groupBy?, color?, direction?, max?, width?, height?, maxWidth? }
+### mermaid.relationGraph(spec)
+A flowchart. Node labels use the page's last path segment; clicking still navigates to the full page.
 
-A flowchart. Node labels use the page's last path segment; clicking still navigates to the full page. Options:
+Spec keys:
  * `pages` — the page list to graph, e.g. `query[[from index.pages("adr")]]`.
  * `relations` *(optional)* — frontmatter fields holding `[[page]]` links to draw as edges, e.g. `{"dependsOn", "related"}`. A `supersededBy` relation is drawn dotted. **When omitted, all relations are auto-detected** — every frontmatter field whose value(s) are `[[links]]` to other pages in the set becomes an edge (labeled by the field name; the `groupBy` field is excluded, since it drives subgraph nesting). Pass an explicit `relations` list to restrict edges to specific fields.
  * `groupBy` *(optional)* — a frontmatter field naming a **container** page; members nest inside that container's **subgraph**. (The `Architecture` page uses `groupBy = "partOf"` to draw the Client / Service Worker / Server layers.)
  * `direction` *(optional)* — `"LR"` (default), `"TD"`, etc.
- * `color` *(optional)* — a frontmatter field whose value becomes a Mermaid CSS class on each node (e.g. `"status"`). Supply matching `classDef`s to style them; without them the nodes render unstyled. *(Auto-`classDef` from observed
- values is a planned enhancement.)*
+ * `color` *(optional)* — a frontmatter field whose value becomes a Mermaid CSS class on each node (e.g. `"status"`). Supply matching `classDef`s to style them; without them the nodes render unstyled. *Auto-`classDef` from observed values is a planned enhancement.)*
  * `max` *(optional, default 60)* — node cap; a "showing N of M" note is added when exceeded.
-### mermaid.timeline{ pages, dateField="date", groupBy="year"|"none", title?, labelField?, max?, width?, height?, maxWidth? }`
+
+### mermaid.timeline(spec)
 A mermaid `timeline`: pages laid out chronologically by a date field. (Mermaid timelines have no node click-through, so these entries are not clickable.)
 
-Options:
+Spec keys:
  * `pages` — the page list to lay out, e.g. `query[[from index.pages("journal")]]`.
  * `dateField` *(default `"date"`)* — frontmatter field holding the date (`YYYY-MM-DD…`); pages without a parseable date are skipped.
  * `groupBy` *(default `"year"`)* — `"year"` groups events under their year; `"none"` emits one entry per date.
@@ -81,10 +82,10 @@ Options:
  * `title` *(optional)* — diagram title.
  * `max` *(optional, default 100)* — event cap; a "showing N of M" note is added when exceeded.
 
-### mermaid.distribution{ pages, by, title?, showData?, emptyLabel?, width?, height?, maxWidth? }
-A aermaid `pie` counting the given pages by a categorical frontmatter field (slices sorted count-descending).
+### mermaid.distribution(spec)
+A pie counting the given pages by a categorical frontmatter field (slices sorted count-descending).
 
-Options:
+Spec keys:
  * `pages` — the page list to count.
  * `by` *(required)* — the frontmatter field to count by, e.g. `"status"`.
  * `emptyLabel` *(optional)* — bucket label for pages missing/blank on `by`; omit to exclude them.
@@ -95,16 +96,16 @@ Options:
 For full control, pass a table instead of a string. It's a generic *element-stream*: a `type` plus an ordered list of `elements`. Because a `raw` element passes a literal Mermaid line through untouched, **any** diagram Mermaid supports is expressible, structured element kinds are just sugar for the common graph cases.
 
 ${mermaid.diagram{
-    type = "flowchart",
-    direction = "LR",
-    elements = {
-      { kind = "node", id = "a", label = "Start", shape = "rounded" },
-      { kind = "node", id = "b", label = "Done" },
-      { kind = "edge", from = "a", to = "b", label = "go", arrow = true },
-      { kind = "click", id = "a", target = "Some Page" },
-      { kind = "raw",  text = "%% any literal mermaid line" },
-    },
-  }}
+  type = "flowchart",
+  direction = "LR",
+  elements = {
+    { kind = "node", id = "a", label = "Start", shape = "rounded" },
+    { kind = "node", id = "b", label = "Done" },
+    { kind = "edge", from = "a", to = "b", label = "go", arrow = true },
+    { kind = "click", id = "a", target = "Some Page" },
+    { kind = "raw",  text = "%% any literal mermaid line" },
+  },
+}}
 
 Element kinds:
 
@@ -310,9 +311,7 @@ local function asMermaid(m)
   return m
 end
 
--- Load the Mermaid ESM module: prefer a locally-installed bundle (offline,
--- self-hosted) when present, otherwise import from the CDN. The JS module loader
--- caches by URL, so this resolves+loads once per page.
+-- Load the Mermaid ESM module: prefer a locally-installed bundle (offline, self-hosted) when present, otherwise import from the CDN. The JS module loader caches by URL, so this resolves+loads once per page.
 local function importMermaid()
   local cfg = mermaidConfig()
   if space.fileExists(cfg.bundlePath) then
@@ -321,10 +320,7 @@ local function importMermaid()
   return asMermaid(js.import(cfg.cdnUrl))
 end
 
--- IR table (or raw string) -> a rendered widget. Mermaid is imported into the
--- main client context via js.import (no sandbox iframe); we render to an SVG
--- string and inject `data-sb-ref` attributes onto node groups so clicks
--- navigate to the mapped page.
+-- IR table (or raw string) -> a rendered widget. Mermaid is imported into the main client context via js.import (no sandbox iframe); we render to an SVG string and inject `data-sb-ref` attributes onto node groups so clicks navigate to the mapped page.
 function mermaid.diagram(input, opts)
   opts = opts or {}
   local width = opts.width
@@ -564,11 +560,17 @@ function mermaid.timeline(spec)
   local groupBy = spec.groupBy or "year"
   local max = spec.max or 100
 
-  local function shortName(n) return (string.match(n, "[^/]+$")) or n end
+  local function shortName(n)
+    return (string.match(n, "[^/]+$")) or n
+  end
   -- a colon is the timeline field separator, so strip it from labels
-  local function clean(s) return (string.gsub(tostring(s), ":", " ")) end
+  local function clean(s)
+    return (string.gsub(tostring(s), ":", " "))
+  end
   local function labelOf(p)
-    if spec.labelField and p[spec.labelField] then return clean(p[spec.labelField]) end
+    if spec.labelField and p[spec.labelField] then
+      return clean(p[spec.labelField])
+    end
     return clean(shortName(p.name))
   end
 
@@ -579,7 +581,9 @@ function mermaid.timeline(spec)
       pages[#pages+1] = p
     end
   end
-  table.sort(pages, function(a, b) return a[dateField] < b[dateField] end)
+  table.sort(pages, function(a, b)
+    return a[dateField] < b[dateField]
+  end)
 
   local elements = {}
   if spec.title then
@@ -592,22 +596,34 @@ function mermaid.timeline(spec)
     for i = 1, shown do
       local p = pages[i]
       local year = string.sub(p[dateField], 1, 4)
-      if not byYear[year] then byYear[year] = {}; order[#order+1] = year end
+      if not byYear[year] then
+        byYear[year] = {}
+        order[#order+1] = year
+      end
       local label = labelOf(p)
       table.insert(byYear[year], label)
     end
     for _, year in ipairs(order) do
-      elements[#elements+1] = { kind = "raw", text = year .. " : " .. table.concat(byYear[year], " : ") }
+      elements[#elements+1] = {
+        kind = "raw",
+        text = year .. " : " .. table.concat(byYear[year], " : ")
+      }
     end
   else
     for i = 1, shown do
       local p = pages[i]
-      elements[#elements+1] = { kind = "raw", text = clean(p[dateField]) .. " : " .. labelOf(p) }
+      elements[#elements+1] = {
+        kind = "raw",
+        text = clean(p[dateField]) .. " : " .. labelOf(p)
+      }
     end
   end
 
   if shown < #pages then
-    elements[#elements+1] = { kind = "raw", text = "%% showing " .. shown .. " of " .. #pages }
+    elements[#elements+1] = {
+      kind = "raw",
+      text = "%% showing " .. shown .. " of " .. #pages
+    }
   end
 
   return {
@@ -660,19 +676,7 @@ function mermaid.distribution(spec)
   }
 end
 
--- Download the self-contained Mermaid bundle from esm.sh into the space, so
--- diagrams render offline (and stop hitting the CDN). Renderers use the local
--- copy automatically once present.
---
--- esm.sh's `?bundle` URL returns a tiny *stub* module that re-exports the real
--- deep bundle, e.g.:
---   export * from "/mermaid@11.4.0/es2022/mermaid.bundle.mjs";
--- The deep bundle's only external import is esm.sh's node `process` polyfill
--- (`import __Process$ from "/node/process.mjs"`), and it only ever reads
--- `env`, `cwd()` and `platform` off it (feature detection). So instead of
--- recursively crawling esm.sh's process->events->tty->async_hooks polyfill
--- chain, we write a tiny local `process.js` shim next to the bundle and rewrite
--- that one import to point at it.
+-- Download the self-contained Mermaid bundle from esm.sh into the space
 command.define {
   name = "Mermaid: Download bundle for offline use",
   run = function()
@@ -723,7 +727,6 @@ codeWidget.define {
 ```
 
 ## Configuration
-
 Everything works out of the box, but you can override the defaults via Space Lua config:
 
 ```lua
