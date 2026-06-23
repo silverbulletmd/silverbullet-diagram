@@ -128,6 +128,21 @@ Top level: `type` (e.g. `"flowchart"` — any Mermaid type), `direction?` (`"LR"
 
 Static ` ```mermaid ` fenced blocks go through the very same path: at the end of this library's Space Lua block, `codeWidget.define{ language = "mermaid", render = ... }` registers a Core code widget whose `render` simply calls `mermaid.diagram(body)`. So static and dynamic diagrams share one renderer.
 
+# Configuration
+Everything works out of the box, but you can override the defaults via Space Lua config:
+
+```lua
+config.set("mermaid", {
+  -- ESM URL imported when no local bundle is installed (default: esm.sh).
+  -- Also the URL the "Download bundle for offline use" command fetches from:
+  cdnUrl = "https://esm.sh/mermaid@11.4.0?bundle",
+  -- Space path the offline bundle is written to / loaded from:
+  bundlePath = "Library/silverbullet-diagram/mermaid.bundle.js",
+})
+```
+
+All keys are optional. By default diagrams load from `cdnUrl`; once a bundle exists at `bundlePath` (e.g. after running **`Mermaid: Download bundle for offline use`**), the local copy is used automatically.
+
 # Implementation
 
 ```space-lua
@@ -725,18 +740,3 @@ codeWidget.define {
   end
 }
 ```
-
-## Configuration
-Everything works out of the box, but you can override the defaults via Space Lua config:
-
-```lua
-config.set("mermaid", {
-  -- ESM URL imported when no local bundle is installed (default: esm.sh).
-  -- Also the URL the "Download bundle for offline use" command fetches from:
-  cdnUrl = "https://esm.sh/mermaid@11.4.0?bundle",
-  -- Space path the offline bundle is written to / loaded from:
-  bundlePath = "Library/silverbullet-diagram/mermaid.bundle.js",
-})
-```
-
-All keys are optional. By default diagrams load from `cdnUrl`; once a bundle exists at `bundlePath` (e.g. after running **`Mermaid: Download bundle for offline use`**), the local copy is used automatically.
