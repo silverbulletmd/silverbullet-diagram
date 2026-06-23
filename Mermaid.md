@@ -17,7 +17,7 @@ C -->|Two| E[Result 2]
 > **note** Note
 > By default diagrams load Mermaid from [esm.sh](https://esm.sh) (a CDN) — nothing is built or shipped with this library, and installing this single page is enough to start drawing. If you'd rather not depend on the CDN (e.g. for offline use or a fully self-hosted space), run the `Mermaid: Download bundle for offline use` command: it downloads the esm.sh bundle plus a tiny `process` shim into your space and, once present, the renderer uses that local copy automatically instead of the CDN.
 
-## Installation
+# Installation
 This is a SilverBullet library (hence the `meta/library` tag). It's a single page — there is no release or asset to fetch. Install it through SilverBullet's built-in **Library Manager**:
 
 1. Run the **`Library: Install`** command (or open the **Libraries** manager via the app menu / **`Libraries: Manager`** command and click **Install**).
